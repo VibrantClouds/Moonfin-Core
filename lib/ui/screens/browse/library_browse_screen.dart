@@ -2435,12 +2435,16 @@ class _LibraryHeader extends StatelessWidget {
     final titleWidget = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          libraryName,
-          style: TextStyle(
-            fontSize: 26 * desktopScale,
-            fontWeight: FontWeight.w300,
-            color: Colors.white,
+        Flexible(
+          child: Text(
+            libraryName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 26 * desktopScale,
+              fontWeight: FontWeight.w300,
+              color: Colors.white,
+            ),
           ),
         ),
         if (totalCount > 0) ...[
