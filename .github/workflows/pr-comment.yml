@@ -213,6 +213,7 @@ jobs:
               { platform: 'iOS',           job: 'ios',           artifact: 'ios-ipa',              files: 'Moonfin_iOS_v*_unsigned.ipa' },
               { platform: 'macOS',         job: 'macos',         artifact: 'macos-dmg',            files: 'Moonfin_macOS_v*.dmg' },
               { platform: 'tvOS',          job: 'tvos',          artifact: 'tvos-ipa',             files: 'Moonfin_tvOS_v*_unsigned.ipa' },
+              { platform: 'Apple tests',   job: 'apple_tests',   artifact: 'apple-test-results',   files: 'test-results.json', tests: true },
               { platform: 'Windows x64',   job: 'windows',       artifact: 'windows-exe',          files: 'Moonfin_Windows_v*.exe' },
               { platform: 'Windows ARM64', job: 'windows_arm64', artifact: 'windows-arm64-exe',    files: 'Moonfin_WindowsARM64_v*.exe' },
               { platform: 'Linux x64',     job: 'linux',         artifact: 'linux-packages-x64',   files: 'Moonfin_Linux_v* (deb/rpm/AppImage/snap/flatpak/tar.gz)' },
@@ -225,10 +226,12 @@ jobs:
             // artifact only uploads when its own leg got that far, so its presence
             // is what tells the two apart. Without outcomes.json, an artifact
             // still proves its build passed, but a missing one proves nothing.
+            // The Apple tests row is a job, not a build, and uploads its results
+            // file whether the tests passed or not, so there it proves nothing.
             const statusOf = (row) => {
               if (!buildRunId) return 'running';
               const result = outcomes?.[row.job];
-              if (result === 'success' || artifacts.has(row.artifact)) return 'success';
+              if (result === 'success' || (!row.tests && artifacts.has(row.artifact))) return 'success';
               return outcomes ? result : 'unknown';
             };
 
@@ -259,9 +262,11 @@ jobs:
             // The Apple XCTests still run in Build All Platforms.
             const checks = checksRunId ? process.env.CHECKS_CONCLUSION : 'running';
             const statuses = rows.map(statusOf);
-            const buildsPassed = Boolean(buildRunId) && rows.every((row, i) => notRun(row.job) || statuses[i] === 'success');
-            const nothingBuilt = Boolean(buildRunId) && rows.every(row => notRun(row.job));
-            const someNotRun = rows.some(row => notRun(row.job));
+            // The Apple tests row counts with the tests below, not the builds.
+            const builds = rows.filter(row => !row.tests);
+            const buildsPassed = Boolean(buildRunId) && builds.every(row => notRun(row.job) || statusOf(row) === 'success');
+            const nothingBuilt = Boolean(buildRunId) && builds.every(row => notRun(row.job));
+            const someNotRun = builds.some(row => notRun(row.job));
             // Without outcomes.json the Apple XCTests are unaccounted for too.
             const buildResultsMissing = Boolean(buildRunId) && !outcomes;
             const appleTestsPassed = !buildRunId || outcomes?.apple_tests === 'success' || notRun('apple_tests');
@@ -304,9 +309,6 @@ jobs:
                 }
               }
             }
-            if (notRun('apple_tests')) {
-              testLines.push('', `**Apple tests** ${notRunText('apple_tests')}`);
-            }
 
             // The delta job's advisory findings on the lines this pull request
             // touched. Each file is missing when its script crashed, and the
@@ -322,21 +324,30 @@ jobs:
             if (diagnostics || format) {
               const diagCount = clamp(diagnostics?.count);
               const hunkCount = clamp(format?.hunks);
-              if (diagnostics && format && diagCount === 0 && hunkCount === 0) {
+              // A file dart format rejected wasn't checked, so it can't count
+              // as formatted.
+              const uncheckedAll = (Array.isArray(format?.unchecked) ? format.unchecked : [])
+                .filter(path => typeof path === 'string' && path);
+              const unchecked = uncheckedAll.slice(0, 30);
+              if (diagnostics && format && diagCount === 0 && hunkCount === 0 && uncheckedAll.length === 0) {
                 deltaLines.push('**Touched lines** ✅ no new diagnostics, formatted');
               } else {
                 const counts = [
                   diagnostics ? plural(diagCount, 'new diagnostic', 'new diagnostics') : 'analyzer check did not run',
                   format ? plural(hunkCount, 'format hunk', 'format hunks') : 'format check did not run',
                 ];
+                if (uncheckedAll.length > 0) {
+                  counts.push(plural(uncheckedAll.length, 'file dart format could not check', 'files dart format could not check'));
+                }
                 deltaLines.push(`**Touched lines** ⚠️ ${counts.join(', ')}`);
                 const shown = [
                   ...listOf(diagnostics).slice(0, 30).map(d =>
                     `- \`${escapeText(`${d.file}:${clamp(d.line)} ${d.code} ${d.message}`)}\``),
                   ...listOf(format).slice(0, 30).map(f =>
                     `- \`${escapeText(`${f.file}:${clamp(f.line)}`)}\` dart format would change this`),
+                  ...unchecked.map(path => `- \`${escapeText(path)}\` dart format could not check this file`),
                 ];
-                const hidden = diagCount + hunkCount - shown.length;
+                const hidden = diagCount + hunkCount + uncheckedAll.length - shown.length;
                 if (hidden > 0) shown.push(`- and ${hidden} more, see the delta job log`);
                 if (shown.length > 0) {
                   deltaLines.push('', '<details><summary>Touched lines</summary>', '', ...shown, '', '</details>');
