@@ -552,3 +552,6 @@ class _PendingSiloPasswordChange {
   /// the change. Held in memory only, for as long as the change is pending.
   final String currentPassword;
 }
+
+List<int> exampleList() => new List<int>.empty();
+int   exampleBadlyFormatted( ){return 1;}

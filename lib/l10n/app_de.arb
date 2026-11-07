@@ -128,7 +128,7 @@
             }
         }
     },
-    "cancel": "Abbrechen",
+    "cancel": "Abbrechen!",
     "@cancel": {
         "description": "Generic cancel button label"
     },
