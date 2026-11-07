@@ -552,3 +552,6 @@ class _PendingSiloPasswordChange {
   /// the change. Held in memory only, for as long as the change is pending.
   final String currentPassword;
 }
+
+List<int> forkTestList() => new List<int>.empty();
+int   forkTestBadlyFormatted( ){return 1;}
