@@ -129,6 +129,7 @@ def warn_if_not_checked_out(head, files, root):
 
 
 def main():
+    raise RuntimeError('fork test: simulated crash')
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('base', help='base ref, e.g. upstream/main or origin/main')
