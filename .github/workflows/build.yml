@@ -97,7 +97,7 @@ jobs:
         env:
           # Flipped to 'false' the day the merge queue goes on. Until then every
           # pull request push builds every platform, as before.
-          PLATFORM_BUILDS_ON_PUSH: 'true'
+          PLATFORM_BUILDS_ON_PUSH: 'false'
           EVENT: ${{ github.event_name }}
           REF: ${{ github.ref }}
           LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
