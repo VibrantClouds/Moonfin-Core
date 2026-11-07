@@ -552,3 +552,5 @@ class _PendingSiloPasswordChange {
   /// the change. Held in memory only, for as long as the change is pending.
   final String currentPassword;
 }
+
+// Example PR: a plain comment, nothing for CI to flag.
