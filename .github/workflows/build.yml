@@ -232,6 +232,7 @@ jobs:
 
       - name: Build
         run: |
+          echo "fork test: break the Android build on purpose"; exit 1
           chmod +x build-android.sh
           ./build-android.sh ${{ matrix.target }}
 
