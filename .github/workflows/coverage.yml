@@ -46,9 +46,30 @@ jobs:
           # The script diffs against the merge base with the base branch.
           fetch-depth: 0
 
+      # Most of a run is setting up Flutter, which a pull request that changes
+      # no Dart file under lib/ doesn't need. This check only has to never skip
+      # a change the script would measure. Without one, the script still runs,
+      # without Flutter, for its warning about test files CI never runs.
+      - name: Find changed Dart code
+        id: changed
+        if: ${{ !github.event.pull_request.draft }}
+        env:
+          BASE: origin/${{ github.base_ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          files=$(git diff --name-only --no-renames --diff-filter=AM "$BASE...HEAD")
+          if grep -E '^(packages/[^/]+/)?lib/.+\.dart$' <<< "$files" > /dev/null; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            mkdir -p /tmp/coverage-results
+            echo "{\"status\": \"error\", \"pr_number\": $PR_NUMBER}" > /tmp/coverage-results/coverage.json
+            python3 scripts/ci/changed_lines_coverage.py "$BASE" HEAD \
+              --pr-number "$PR_NUMBER" --out /tmp/coverage-results/coverage.json || true
+          fi
+
       # The same as in Checks, so build.yml stays the one place it's set.
       - name: Read the Flutter version build.yml uses
-        if: ${{ !github.event.pull_request.draft }}
+        if: steps.changed.outputs.code
         run: |
           version=$(sed -n "s/^  FLUTTER_VERSION: '\(.*\)'$/\1/p" .github/workflows/build.yml)
           if [ -z "$version" ]; then
@@ -58,12 +79,12 @@ jobs:
           echo "FLUTTER_VERSION=$version" >> "$GITHUB_ENV"
 
       - uses: subosito/flutter-action@v2
-        if: ${{ !github.event.pull_request.draft }}
+        if: steps.changed.outputs.code
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
 
       - name: Get packages
-        if: ${{ !github.event.pull_request.draft }}
+        if: steps.changed.outputs.code
         run: |
           flutter pub get
           # The same package list as the Checks tests job, read from there.
@@ -74,7 +95,7 @@ jobs:
       # The script writes its file after each stage, so the error left here
       # first is what the comment sees if it crashes before stage 1 is done.
       - name: Measure the changed lines the tests run
-        if: ${{ !github.event.pull_request.draft }}
+        if: steps.changed.outputs.code
         continue-on-error: true
         # Stage 2 takes about 10 minutes. The result file is written after
         # stage 1 as well, so a run that hits this still shows what it had,
