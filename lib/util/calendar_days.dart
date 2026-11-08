@@ -5,3 +5,7 @@ int calendarDaysBetween(DateTime from, DateTime to) =>
     DateTime.utc(to.year, to.month, to.day)
         .difference(DateTime.utc(from.year, from.month, from.day))
         .inDays;
+
+/// Whether [a] and [b] fall on the same calendar day.
+bool isSameCalendarDay(DateTime a, DateTime b) =>
+    a.year == b.year && a.month == b.month && a.day == b.day;
