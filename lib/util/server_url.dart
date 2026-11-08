@@ -17,11 +17,21 @@ bool isStoredServer(
   return storedUrl.isNotEmpty && storedUrl == normalizeServerBaseUrl(baseUrl);
 }
 
+/// Whether [input] already starts with a scheme such as https://.
+bool hasServerScheme(String input) => _schemeRegex.hasMatch(input.trim());
+
+/// [input] with https:// in front when it has no scheme.
+String withDefaultScheme(String input) {
+  final trimmed = input.trim();
+  if (trimmed.isEmpty || hasServerScheme(trimmed)) return trimmed;
+  return 'https://$trimmed';
+}
+
 String normalizeServerBaseUrl(String input) {
   final trimmed = input.trim();
   if (trimmed.isEmpty) return '';
 
-  final hasScheme = _schemeRegex.hasMatch(trimmed);
+  final hasScheme = hasServerScheme(trimmed);
   final parseTarget = hasScheme ? trimmed : 'https://$trimmed';
 
   Uri uri;
