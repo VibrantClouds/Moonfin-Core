@@ -5,3 +5,7 @@ int calendarDaysBetween(DateTime from, DateTime to) =>
     DateTime.utc(to.year, to.month, to.day)
         .difference(DateTime.utc(from.year, from.month, from.day))
         .inDays;
+
+/// Calendar days from [now] (today by default) until [to].
+int calendarDaysUntil(DateTime to, {required DateTime now}) =>
+    calendarDaysBetween(now, to);
