@@ -18,6 +18,9 @@ on:
   pull_request:
     branches:
       - main
+      # Fork demo only: replays of past upstream PRs target a base branch
+      # with that PR reverted.
+      - 'replay/base-*'
   merge_group:
   # Main, to warm the caches below. Release tags, as in build.yml, so a tagged
   # commit still gets the analyzer and tests like it did when they were a job
