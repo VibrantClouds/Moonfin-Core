@@ -14979,9 +14979,7 @@ class DetailMetadataSectionState extends State<DetailMetadataSection> {
               name: name,
               id: id,
               onTap: name.isNotEmpty
-                  ? () => context.push(
-                      Destinations.studio(name, serverId: serverId),
-                    )
+                  ? () => context.push(Destinations.studio(name))
                   : null,
             );
           }).toList(),
