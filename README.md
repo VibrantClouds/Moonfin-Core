@@ -232,3 +232,4 @@ either version 2 of the License or, at your option, any later version. See
   <strong>Moonfin</strong> is an independent project and is not affiliated with the Jellyfin or Emby projects.<br>
   <a href="https://github.com/Moonfin-Client">← Back to main Moonfin project</a>
 </p>
+
