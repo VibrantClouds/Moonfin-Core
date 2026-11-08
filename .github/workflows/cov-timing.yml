@@ -1,0 +1,92 @@
+# Throwaway timing experiment, fork only. Not for upstream.
+name: Coverage timing experiment
+on:
+  push:
+    branches: [exp/coverage-timing]
+jobs:
+  perfile:
+    runs-on: ubuntu-26.04
+    strategy:
+      fail-fast: false
+      matrix:
+        split: ['3-0', '3-1', '3-2', '6-0', '6-1', '6-2', '6-3', '6-4', '6-5']
+    name: perfile (${{ matrix.split }})
+    steps:
+      - uses: actions/checkout@v5
+      - run: |
+          echo "FLUTTER_VERSION=$(sed -n "s/^  FLUTTER_VERSION: '\(.*\)'$/\1/p" .github/workflows/build.yml)" >> "$GITHUB_ENV"
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+      - name: Run
+        run: |
+          flutter pub get >/dev/null
+          n=${{ matrix.split }}; total=${n%-*}; idx=${n#*-}
+          mapfile -t files < <(find test -name '*_test.dart' | LC_ALL=C sort | awk -v t=$total -v s=$idx '(NR - 1) % t == s')
+          pat='^('$(for d in packages/*/; do [ -f $d/pubspec.yaml ] && sed -n 's/^name: *//p' $d/pubspec.yaml; done | sort | tr '\n' '|')'moonfin)$'
+          if [ "$total" = 3 ]; then
+            a=$(date +%s); flutter test "${files[@]}" --reporter json > plain.jsonl || true; b=$(date +%s)
+            echo "TIMING plain files=${#files[@]} secs=$((b-a))"
+          fi
+          a=$(date +%s); flutter test --coverage --coverage-path cov.info --coverage-package "$pat" "${files[@]}" --reporter json > cov.jsonl || true; b=$(date +%s)
+          echo "TIMING coverage files=${#files[@]} secs=$((b-a)) fails=$(grep -c '"result":"\(failure\|error\)"' cov.jsonl)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: perfile-${{ matrix.split }}
+          path: cov.info
+          retention-days: 3
+
+  bundled:
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v5
+      - run: |
+          echo "FLUTTER_VERSION=$(sed -n "s/^  FLUTTER_VERSION: '\(.*\)'$/\1/p" .github/workflows/build.yml)" >> "$GITHUB_ENV"
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+      - name: Run
+        run: |
+          flutter pub get >/dev/null
+          pat='^('$(for d in packages/*/; do [ -f $d/pubspec.yaml ] && sed -n 's/^name: *//p' $d/pubspec.yaml; done | sort | tr '\n' '|')'moonfin)$'
+          find test -name '*_test.dart' | LC_ALL=C sort > all.txt
+          grep -lE '[A-Za-z]+Binding\.ensureInitialized\(\)' $(cat all.txt) | xargs -r grep -LE '^\s*(TestWidgetsFlutterBinding|AutomatedTestWidgetsFlutterBinding)\.ensureInitialized' > solo.txt || true
+          grep -vxFf solo.txt all.txt > bundled.txt
+          bundles=()
+          for k in 0 1 2 3; do
+            awk -v k=$k '(NR-1)%4==k' bundled.txt > part.txt
+            python3 - part.txt test/_bundle_${k}_test.dart <<'PY'
+          import sys, os
+          files = [l.strip() for l in open(sys.argv[1]) if l.strip()]
+          out = ["import 'package:flutter_test/flutter_test.dart';"]
+          out += [f"import '{os.path.relpath(f, 'test')}' as t{i};" for i, f in enumerate(files)]
+          out += ['void main() {'] + [f"  group('{f}', t{i}.main);" for i, f in enumerate(files)] + ['}']
+          open(sys.argv[2], 'w').write('\n'.join(out) + '\n')
+          PY
+            bundles+=(test/_bundle_${k}_test.dart)
+          done
+          mapfile -t solo < solo.txt
+          a=$(date +%s); flutter test --coverage --coverage-path bundled.info --coverage-package "$pat" "${bundles[@]}" "${solo[@]}" --reporter json > bundled.jsonl || true; b=$(date +%s)
+          echo "TIMING bundled files=$(wc -l < all.txt) secs=$((b-a)) fails=$(grep -c '"result":"\(failure\|error\)"' bundled.jsonl)"
+          python3 - bundled.jsonl > retry.txt <<'PY'
+          import json, sys
+          names, files = {}, set()
+          for l in open(sys.argv[1]):
+              try: e = json.loads(l)
+              except Exception: continue
+              if e.get('type') == 'testStart': names[e['test']['id']] = e['test']['name']
+              if e.get('type') == 'testDone' and e['result'] != 'success' and not e.get('hidden'):
+                  f = names.get(e['testID'], '').split(' ')[0]
+                  if f.startswith('test/') and f.endswith('_test.dart'): files.add(f)
+          print('\n'.join(sorted(files)))
+          PY
+          mapfile -t retry < retry.txt
+          a=$(date +%s); flutter test --coverage --coverage-path retry.info --coverage-package "$pat" "${retry[@]}" --reporter json > retry.jsonl || true; b=$(date +%s)
+          echo "TIMING retry files=${#retry[@]} secs=$((b-a))"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bundled
+          path: |
+            bundled.info
+            retry.info
+          retention-days: 3
