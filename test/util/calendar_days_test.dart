@@ -31,4 +31,7 @@ void main() {
       expect(calendarDaysBetween(DateTime(2028, 2, 28), DateTime(2028, 3, 1)), 2);
     });
   });
+  test('counts days to each date', () {
+    expect(calendarDaysToEach(DateTime(2026, 1, 1), [DateTime(2026, 1, 2), DateTime(2026, 1, 5)]), [1, 4]);
+  });
 }

@@ -5,3 +5,13 @@ int calendarDaysBetween(DateTime from, DateTime to) =>
     DateTime.utc(to.year, to.month, to.day)
         .difference(DateTime.utc(from.year, from.month, from.day))
         .inDays;
+
+/// The calendar days from [from] to each of [dates], in order.
+List<int> calendarDaysToEach(DateTime from, List<DateTime> dates) {
+  final result = <int>[];
+  for (final date in dates) {
+    final days = calendarDaysBetween(from, date);
+    result.add(days);
+  }
+  return List.unmodifiable(result);
+}
