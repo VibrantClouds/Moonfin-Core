@@ -89,4 +89,7 @@ void main() {
       );
     });
   });
+  test('counts whole weeks', () {
+    expect(wholeWeeksBetween(DateTime(2026, 1, 1), DateTime(2026, 1, 16)), 2);
+  });
 }

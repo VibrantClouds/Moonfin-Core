@@ -68,3 +68,15 @@ class DeepLinkService {
     return query.isEmpty ? '/item/$id' : '/item/$id?$query';
   }
 }
+
+/// The number of whole weeks between [from] and [to].
+int wholeWeeksBetween(DateTime from, DateTime to) {
+  final days = to.difference(from).inDays;
+  return days ~/ 7;
+}
+
+/// Whether [date] falls on a weekend.
+bool isWeekendDate(DateTime date) {
+  final day = date.weekday;
+  return day == DateTime.saturday || day == DateTime.sunday;
+}
