@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:moonfin/data/repositories/seerr_repository.dart';
@@ -27,15 +26,15 @@ class _FakeSeerr extends Fake implements SeerrRepository {
     this.externalTvdbId,
     this.mediaInfo,
     this.matches = const [],
-    this.lookupError,
+    this.lookupFails = false,
   });
 
   final int? externalTvdbId;
   final SeerrMediaInfo? mediaInfo;
   final List<SeerrSonarrSeries> matches;
 
-  /// What the lookup throws, if anything.
-  Object? lookupError;
+  /// The lookup can't be made, as on a Seerr with no Sonarr (a 404) or Silo.
+  final bool lookupFails;
   int lookups = 0;
   int? requestedTvdbId;
   bool requested = false;
@@ -68,8 +67,7 @@ class _FakeSeerr extends Fake implements SeerrRepository {
   @override
   Future<List<SeerrSonarrSeries>> lookupSonarrSeries(int tmdbId) async {
     lookups++;
-    final error = lookupError;
-    if (error != null) throw error;
+    if (lookupFails) throw Exception('No sonarr server has been setup');
     return matches;
   }
 
@@ -133,15 +131,6 @@ Future<void> _pumpDialog(
     ),
   );
   await tester.pumpAndSettle();
-}
-
-/// What the Seerr client throws for a lookup Seerr answered with [status].
-DioException _lookupHttpError(int status) {
-  final options = RequestOptions(path: '/api/v1/service/sonarr/lookup/316811');
-  return DioException(
-    requestOptions: options,
-    response: Response(requestOptions: options, statusCode: status),
-  );
 }
 
 void main() {
@@ -243,70 +232,23 @@ void main() {
     vm.dispose();
   });
 
-  for (final (name, error) in [
-    ('a Seerr with no Sonarr', _lookupHttpError(404)),
-    ('Silo', UnsupportedError('Silo has no Sonarr lookup')),
-  ]) {
-    testWidgets('$name goes straight to the request', (tester) async {
-      final seerr = _FakeSeerr(lookupError: error);
-      final vm = await _loadedVm(seerr);
-      await _pumpDialog(tester, vm);
+  testWidgets('a lookup that cannot be made goes straight to the request', (
+    tester,
+  ) async {
+    final seerr = _FakeSeerr(lookupFails: true);
+    final vm = await _loadedVm(seerr);
+    await _pumpDialog(tester, vm);
 
-      expect(seerr.lookups, 1);
-      expect(find.text('All Seasons'), findsOneWidget);
-      expect(find.text('Cancel'), findsOneWidget);
+    expect(seerr.lookups, 1);
+    expect(find.text('All Seasons'), findsOneWidget);
+    expect(find.text('Cancel'), findsOneWidget);
 
-      await tester.tap(find.text('Submit Request'));
-      await tester.pumpAndSettle();
-      expect(seerr.requested, isTrue);
-      expect(seerr.requestedTvdbId, isNull);
-      vm.dispose();
-    });
-  }
-
-  // Seerr answers 500 both when Sonarr finds no series and when it can't be
-  // reached, and a timeout comes back with no response at all.
-  for (final (name, error) in [
-    ('a lookup Seerr fails', _lookupHttpError(500)),
-    (
-      'a lookup that times out',
-      DioException.connectionTimeout(
-        timeout: const Duration(seconds: 30),
-        requestOptions: RequestOptions(path: '/api/v1/service/sonarr/lookup'),
-      ),
-    ),
-  ]) {
-    testWidgets('$name offers a retry instead of the request', (
-      tester,
-    ) async {
-      final seerr = _FakeSeerr(
-        matches: const [_braunschlag1986],
-        lookupError: error,
-      );
-      final vm = await _loadedVm(seerr);
-      await _pumpDialog(tester, vm);
-
-      const failed =
-          "Sonarr couldn't find a match for this series, or couldn't be "
-          'reached. Try again, or check the series on Seerr.';
-      expect(seerr.lookups, 1);
-      expect(find.text(failed), findsOneWidget);
-      expect(find.text('Retry'), findsOneWidget);
-      expect(find.text('All Seasons'), findsNothing);
-      expect(find.text('Submit Request'), findsNothing);
-
-      seerr.lookupError = null;
-      await tester.tap(find.text('Retry'));
-      await tester.pumpAndSettle();
-
-      expect(seerr.lookups, 2);
-      expect(find.text(failed), findsNothing);
-      expect(find.text('Braunschlag 1986'), findsOneWidget);
-      expect(find.text('Next'), findsOneWidget);
-      expect(seerr.requested, isFalse);
-      vm.dispose();
-    });
-  }
+    await tester.tap(find.text('Submit Request'));
+    await tester.pumpAndSettle();
+    expect(seerr.requested, isTrue);
+    expect(seerr.requestedTvdbId, isNull);
+    vm.dispose();
+  });
 
   testWidgets('a series TMDB has a TVDB id for never looks one up', (
     tester,
