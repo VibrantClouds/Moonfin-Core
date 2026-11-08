@@ -437,7 +437,7 @@ jobs:
                   : '**Coverage** 🧪 no measurable changed lines';
               } else {
                 const mark = partial ? '⚠️' : total >= 5 ? grade(run, total) : '🧪';
-                const lines = plural(total, 'changed Dart line', 'changed Dart lines');
+                const lines = plural(total, 'measurable changed line', 'measurable changed lines');
                 line = run === total
                   ? `**Coverage** ${mark} tests run all ${lines}`
                   : `**Coverage** ${mark} tests run ${run} of ${lines} (${Math.floor((100 * run) / total)}%)`;
@@ -446,7 +446,7 @@ jobs:
                 // run what the whole suite runs.
                 if (coverage.own_tests === 'ran' && ownRun !== run) {
                   line += ` · ${ownRun} by this PR's own tests`;
-                } else if (coverage.own_tests === 'none') {
+                } else if (coverage.own_tests === 'none' && run < total) {
                   line += ' · this PR changes no tests';
                 }
               }
@@ -493,8 +493,15 @@ jobs:
                 coverageLines.push('', '| | File | Changed lines tests run |', '|---|---|---|', ...rows, '',
                   `<sub>A line counts when any test runs it, which doesn't mean a test checks what it does.${where}</sub>`);
               }
+            }
+            // A web-only file is named whatever else the run found, even when
+            // it was the only Dart change.
+            if (coverageStatus === 'ok' || coverageStatus === 'no_code') {
               const webOnly = asList(coverage.web_only).slice(0, 10).map(p => `\`${escapeText(p)}\``);
-              if (webOnly.length > 0) coverageLines.push('', `Web only, so not measured: ${webOnly.join(', ')}`);
+              if (webOnly.length > 0) {
+                if (coverageLines.length > 0) coverageLines.push('');
+                coverageLines.push(`**Coverage** web only, so not measured: ${webOnly.join(', ')}`);
+              }
             }
             // Shown whatever the status: CI never runs these files at all.
             for (const t of asList(coverage?.never_run_tests).filter(t => t && typeof t === 'object').slice(0, 10)) {

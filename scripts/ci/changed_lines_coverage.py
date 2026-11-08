@@ -63,12 +63,14 @@ WEB_ONLY = re.compile(r"""^\s*import\s+['"](dart:js_interop|dart:html|dart:js|da
                       r"""package:web/|package:flutter_web_plugins/)""", re.M)
 MAIN = re.compile(r'^\s*(?:Future<void>|void)\s+main\s*\(', re.M)
 # Test files that can't share a process with others: one that sets up its own
-# binding, since a process has one, and one with a library annotation such as
-# @TestOn or @Tags, which a bundle would drop.
+# binding, since a process has one, one with a library annotation such as
+# @TestOn or @Tags, which a bundle would drop, and one with an async main(),
+# since a group body may not be async.
 OWN_BINDING = re.compile(r'\b[A-Za-z]+Binding\.ensureInitialized\(\)')
 TEST_BINDING = re.compile(r'^\s*(?:TestWidgetsFlutterBinding|AutomatedTestWidgetsFlutterBinding)'
                           r'\.ensureInitialized', re.M)
 LIBRARY_ANNOTATION = re.compile(r'^@(?:TestOn|Tags|Skip|Timeout|OnPlatform)\b', re.M)
+ASYNC_MAIN = re.compile(r'^\s*(?:Future<void>\s+main\s*\(|(?:void\s+)?main\s*\([^)]*\)\s*async\b)', re.M)
 
 
 def read(root, path):
@@ -266,7 +268,7 @@ def own_tests_stage(root, runner, tests, lib_files, packages):
 
 def needs_own_process(text):
     return bool((OWN_BINDING.search(text) and not TEST_BINDING.search(text))
-                or LIBRARY_ANNOTATION.search(text))
+                or LIBRARY_ANNOTATION.search(text) or ASYNC_MAIN.search(text))
 
 
 def write_bundle(root, path, files):
@@ -314,9 +316,16 @@ def suite_stage(root, runner, skip, lib_files, packages):
     # crashed or didn't load lost all of it, and all its files run again. A
     # failing test in a bundle that finished only costs its own file's lines.
     # A solo file's failure is a real one, which the Checks run reports too.
-    rerun = set(bundled) if h is None else set()
+    # A run that wrote no coverage at all is reported as partial rather than
+    # run again file by file, which would take longer than the step allows.
+    rerun, still_failing = set(), set()
+    if h is None:
+        lost = True
     for name, result, suite in results(events, root, root):
-        if result == 'success' or suite not in bundles:
+        if result == 'success':
+            continue
+        if suite not in bundles:
+            still_failing.add(suite)
             continue
         first = name.split(' ', 1)[0]
         if result == 'unfinished' or name.startswith('loading ') or first not in bundles[suite]:
@@ -324,7 +333,6 @@ def suite_stage(root, runner, skip, lib_files, packages):
         else:
             rerun.add(first)
 
-    still_failing = set()
     if rerun:
         h, events = runner.run(root, sorted(rerun))
         if h is None:
@@ -507,6 +515,10 @@ def main():
             result['own_tests'] = 'ran' if own else 'none' if not tests else 'too_many'
             own_hits, result['tests_passed'], result['tests_failed'] = own_tests_stage(
                 root, runner, own, lib_files, packages)
+            if not runner.with_coverage:
+                result.update(status='error', files=[], lines=0, lines_run=0)
+                write(args.out, result)
+                sys.exit('error: the test run wrote no coverage')
             hits = {}
             merge(hits, own_hits)
             summarize(result, ranges, hits, own_hits if own else None)
@@ -521,8 +533,6 @@ def main():
                 merge(hits, suite_hits)
                 result['suite_ran'] = True
                 result['partial'] = 'lost' if lost else None
-            if not runner.with_coverage:
-                sys.exit('error: none of the test runs wrote coverage')
             gaps_by_file = summarize(result, ranges, hits, own_hits if own else None)
             if args.annotate:
                 result['annotated'] = annotate(gaps_by_file, args.annotate, root)
