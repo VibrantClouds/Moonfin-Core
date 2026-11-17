@@ -283,9 +283,13 @@ private class MoonfinRenderersFactory(
         // it stays inert until a dead track has actually been seen. It also
         // holds a bitstream track through an HDMI route flap so a link
         // renegotiating mid-playback never lands the track on a decoder.
+        // The TCL G10 goes silent on resume while its clock keeps running, so
+        // the frozen position never shows it. It starts out broken (#2261).
         val recovering = PassthroughRecoveryAudioSink(
             delegate = sink,
-            recovery = PassthroughSilenceRecovery(),
+            recovery = PassthroughSilenceRecovery(
+                startBroken = Build.MANUFACTURER == "TCL" && Build.DEVICE == "G10",
+            ),
             flap = RouteFlapHold(),
             onRecoveryNeeded = onPassthroughRecoveryNeeded,
         )
@@ -2744,7 +2748,9 @@ class Media3VideoView(
                     "reason" to reason,
                 ),
             )
-            player.seekTo(resumeMs)
+            // The player ignores a seek to the millisecond it is already on,
+            // which is where a just-resumed clock still sits, so step past it.
+            player.seekTo(resumeMs + 1)
         }
     }
 

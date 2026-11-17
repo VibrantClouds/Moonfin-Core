@@ -148,6 +148,9 @@ jobs:
     if: needs.plan.outputs.android == 'true'
     name: android
     runs-on: ubuntu-26.04
+    # Test build only: installs as "Moonfin Test" next to the real app.
+    env:
+      MOONFIN_TEST_ID_SUFFIX: .hwtest
     steps:
       - uses: actions/checkout@v5
 

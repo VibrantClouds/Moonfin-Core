@@ -17,6 +17,9 @@ package org.moonfin.nativevideo
  * guards only flushes that happen after a detection, so seek latency
  * everywhere else is untouched. PCM output never engages any of it.
  *
+ * [startBroken] skips the evidence for a device known to go silent on resume
+ * while its clock keeps running, which the frozen position can never show.
+ *
  * The caller owns the clock, every entry point takes elapsed milliseconds, so
  * the logic stays a plain object a JVM test can drive.
  */
@@ -26,9 +29,10 @@ class PassthroughSilenceRecovery(
     private val recoveryMinIntervalMs: Long = 3_000L,
     private val maxConsecutiveFailures: Int = 4,
     private val holdStepsMs: LongArray = longArrayOf(250L, 500L, 800L),
+    startBroken: Boolean = false,
 ) {
     /** Sticks for the life of the sink once one dead track has been seen. */
-    var isBroken = false
+    var isBroken = startBroken
         private set
 
     private var isPassthrough = false
@@ -62,6 +66,9 @@ class PassthroughSilenceRecovery(
 
     fun onPause() {
         playing = false
+        // The rebuild is an in-place seek, which the player skips when the
+        // position hasn't moved, so no flush may ever clear the mark.
+        recoveryPending = false
     }
 
     fun onFlush(nowMs: Long) {

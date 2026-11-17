@@ -193,6 +193,39 @@ class PassthroughSilenceRecoveryTest {
     }
 
     @Test
+    fun `a route that starts broken rebuilds on resume without any evidence`() {
+        val recovery = PassthroughSilenceRecovery(startBroken = true)
+        recovery.onConfigure(passthrough = true, nowMs = 0)
+        recovery.onPlay(0)
+        recovery.onFlush(100)
+        recovery.onPosition(4_000L, true, 5_000)
+        recovery.onPosition(5_000L, true, 6_000)
+        recovery.onPause()
+        assertTrue(recovery.onPlay(20_000))
+    }
+
+    @Test
+    fun `a rebuild that never flushed does not block the next resume`() {
+        val recovery = PassthroughSilenceRecovery(startBroken = true)
+        recovery.onConfigure(passthrough = true, nowMs = 0)
+        // The rebuild's seek was skipped, so no flush follows it.
+        assertTrue(recovery.onPlay(0))
+        recovery.onPosition(4_000L, true, 5_000)
+        recovery.onPosition(5_000L, true, 6_000)
+        recovery.onPause()
+        assertTrue(recovery.onPlay(20_000))
+    }
+
+    @Test
+    fun `a route that starts broken leaves pcm alone`() {
+        val recovery = PassthroughSilenceRecovery(startBroken = true)
+        recovery.onConfigure(passthrough = false, nowMs = 0)
+        assertFalse(recovery.onPlay(0))
+        recovery.onPause()
+        assertFalse(recovery.onPlay(20_000))
+    }
+
+    @Test
     fun `resume on a healthy route never rebuilds proactively`() {
         val recovery = PassthroughSilenceRecovery()
         playingPassthrough(recovery, 0)
