@@ -5,9 +5,6 @@ import 'package:server_core/server_core.dart';
 import '../data/services/client_certificate_service.dart';
 import '../preference/user_preferences.dart';
 
-// mpv's own tls-verify default, read before the first open changes it.
-String? _mpvTlsVerifyDefault;
-
 /// Points mpv at the client certificate for [url]'s host, or clears the one a
 /// previous open set. mpv only takes file paths and has no key password, so
 /// the key is written unencrypted to app-private storage. Also stops mpv
@@ -16,6 +13,22 @@ Future<void> applyMpvClientCertificate(Player player, String url) async {
   final platform = player.platform;
   if (platform is! NativePlayer) return;
   try {
+    // NativePlayer's web stub has no setProperty, so the web build needs dynamic here.
+    final dynamic native = platform;
+    // mpv builds with libcurl, like the Windows one, verify certificates by
+    // default, so a self-signed server the app was told to trust would refuse
+    // to play. With the setting off, mpv gets its own default back rather
+    // than a forced yes, because the FFmpeg 6.1 OpenSSL and mbedtls backends
+    // in older builds load no system certificates.
+    final allowSelfSigned = GetIt.instance<UserPreferences>().get(
+      UserPreferences.allowSelfSignedCerts,
+    );
+    await native.setProperty(
+      'tls-verify',
+      allowSelfSigned
+          ? 'no'
+          : await native.getProperty('option-info/tls-verify/default-value'),
+    );
     final certificate = clientCertificateFor(Uri.tryParse(url)?.host ?? '');
     var certPath = '';
     var keyPath = '';
@@ -27,22 +40,8 @@ Future<void> applyMpvClientCertificate(Player player, String url) async {
       certPath = certFile.path;
       keyPath = keyFile.path;
     }
-    // NativePlayer's web stub has no setProperty, so the web build needs dynamic here.
-    final dynamic native = platform;
     await native.setProperty('tls-cert-file', certPath);
     await native.setProperty('tls-key-file', keyPath);
-    // mpv 0.42 verifies certificates by default, so a self-signed server the
-    // app was told to trust would refuse to play. Turning the setting off
-    // puts back the build's own default rather than forcing verification on
-    // older builds, whose FFmpeg may not load the system certificates.
-    _mpvTlsVerifyDefault ??= (await native.getProperty('tls-verify')) as String;
-    final allowSelfSigned = GetIt.instance<UserPreferences>().get(
-      UserPreferences.allowSelfSignedCerts,
-    );
-    await native.setProperty(
-      'tls-verify',
-      allowSelfSigned ? 'no' : _mpvTlsVerifyDefault,
-    );
   } catch (_) {
     // Playback still goes ahead, and a server that needs the certificate
     // refuses it.
