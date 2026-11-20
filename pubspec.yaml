@@ -232,7 +232,7 @@ dependency_overrides:
     git:
       url: https://github.com/VibrantClouds/media-kit.git
       path: libs/windows/media_kit_libs_windows_video
-      ref: 558a55c623406bcf6cb2036f2c740dd3ee46f07c
+      ref: 77c88461ff3d9b55c76db62055ea9f3787f62ef4
   # Vendored 0.6.0 with a Windows texture_bridge.cc fix for scroll/resize and
   # tab-switch crashes (null-visual guard + WGC Recreate moved off the
   # capture-thread mutex). Both changed sites carry their reasoning inline in
@@ -274,7 +274,7 @@ dependency_overrides:
     git:
       url: https://github.com/VibrantClouds/media-kit.git
       path: media_kit_video
-      ref: 558a55c623406bcf6cb2036f2c740dd3ee46f07c
+      ref: 77c88461ff3d9b55c76db62055ea9f3787f62ef4
   synchronized: 3.3.1
   wakelock_plus: 1.5.2
   screen_brightness_android: 2.1.3

@@ -1161,8 +1161,8 @@ packages:
     dependency: "direct main"
     description:
       path: "libs/windows/media_kit_libs_windows_video"
-      ref: "558a55c623406bcf6cb2036f2c740dd3ee46f07c"
-      resolved-ref: "558a55c623406bcf6cb2036f2c740dd3ee46f07c"
+      ref: "77c88461ff3d9b55c76db62055ea9f3787f62ef4"
+      resolved-ref: "77c88461ff3d9b55c76db62055ea9f3787f62ef4"
       url: "https://github.com/VibrantClouds/media-kit.git"
     source: git
     version: "1.0.12"
@@ -1170,8 +1170,8 @@ packages:
     dependency: "direct main"
     description:
       path: media_kit_video
-      ref: "558a55c623406bcf6cb2036f2c740dd3ee46f07c"
-      resolved-ref: "558a55c623406bcf6cb2036f2c740dd3ee46f07c"
+      ref: "77c88461ff3d9b55c76db62055ea9f3787f62ef4"
+      resolved-ref: "77c88461ff3d9b55c76db62055ea9f3787f62ef4"
       url: "https://github.com/VibrantClouds/media-kit.git"
     source: git
     version: "2.0.1"
