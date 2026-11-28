@@ -367,7 +367,7 @@ runtime_skip_pattern() {
   skip="$skip"'|libglib|libgobject|libgio|libgmodule|libgthread'
   skip="$skip"'|libpulse|libdbus|libasound|libsndfile|libpipewire|libspa|libjack'
   skip="$skip"'|libfontconfig|libfreetype|libharfbuzz|libcairo|libpango|libpixman'
-  skip="$skip"'|libatk|libgdk|libgtk|libepoxy|libgdk_pixbuf|librsvg'
+  skip="$skip"'|libatk|libgdk|libgtk|libepoxy|libgdk_pixbuf|libglycin|librsvg'
   skip="$skip"'|libmount|libblkid|libuuid|libresolv|libnss3|libnssutil'
   skip="$skip"'|libsystemd'
   # OpenSSL finds its trust store and its provider modules through a directory
